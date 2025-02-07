@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gender Classification</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+
+        #videoContainer, #dropZone {
+            margin-top: 10px;
+            padding: 10px;
+            border: 2px solid gray;
+            display: inline-block;
+            border-radius: 10px;
+        }
+
+        #videoFeed {
+            width: 80%; /* Enlarged video feed */
+            border: 2px solid black;
+        }
+
+        #dropZone {
+            width: 50%;
+            margin: 10px auto;
+            padding: 20px;
+            border: 2px dashed gray;
+            cursor: pointer;
+            text-align: center;
+            background-color: #f9f9f9;
+        }
+
+        #uploadedImage {
+            margin-top: 10px;
+            max-width: 50%;
+            display: none;
+            border-radius: 10px;
+            border: 2px solid black;
+        }
+
+        #resultBox {
+            width: 50%;
+            margin: 10px auto;
+            padding: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            text-align: center;
+            border: 2px solid black;
+            border-radius: 5px;
+            background-color: #fff;
+        }
+
+        button {
+            padding: 10px 15px;
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+            margin: 5px;
+            border-radius: 5px;
+        }
+
+        #startCamera {
+            background-color: #28a745;
+            color: white;
+        }
+
+        #stopCamera {
+            background-color: #dc3545;
+            color: white;
+            display: none;
+        }
+
+        #submitImage {
+            background-color: #007bff;
+            color: white;
+            display: none;
+        }
+        
+    </style>
+</head>
+<body>
+
+    <h1>Gender Classification</h1>
+
+    <!-- Webcam Stream -->
+    <button id="startCamera">Start Camera</button>
+    <button id="stopCamera">Stop Camera</button>
+    <br><br>
+        <div id="videoContainer">
+        <img id="videoFeed" src="" alt="Live Feed">
+    </div>
+
+    <!-- Image Upload -->
+    <h2>Upload Image</h2>
+    <input type="file" id="imageUpload" accept="image/*">
+    <div id="dropZone">Drag & Drop Image Here</div>
+    <img id="uploadedImage" src="" style="display:none;">
+    
+    <button id="submitImage">Submit</button>
+
+    <!-- Result Box -->
+    <h3>Predicted Gender:</h3>
+    <input type="text" id="resultBox" readonly placeholder="Result will appear here">
+
+    <script>
+        // Start Camera
+        document.getElementById("startCamera").addEventListener("click", function() {
+            document.getElementById("videoFeed").src = "/video_feed";
+            document.getElementById("startCamera").style.display = "none"; // Hide start button
+            document.getElementById("stopCamera").style.display = "inline-block"; // Show stop button
+        });
+
+        // Stop Camera
+        document.getElementById("stopCamera").addEventListener("click", function() {
+            document.getElementById("videoFeed").src = "";
+            document.getElementById("stopCamera").style.display = "none"; // Hide stop button
+            document.getElementById("startCamera").style.display = "inline-block"; // Show start button
+        });
+
+        let uploadedFile = null;
+
+        // Image Upload
+        document.getElementById("imageUpload").addEventListener("change", function(event) {
+            uploadedFile = event.target.files[0];
+            if (!uploadedFile) return;
+
+            let reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById("uploadedImage").src = e.target.result;
+                document.getElementById("uploadedImage").style.display = "block";
+                document.getElementById("submitImage").style.display = "inline-block";
+            };
+            reader.readAsDataURL(uploadedFile);
+        });
+
+        // Drag & Drop Functionality
+        let dropZone = document.getElementById("dropZone");
+        dropZone.addEventListener("dragover", function(e) {
+            e.preventDefault();
+            dropZone.style.backgroundColor = "#e0e0e0";
+        });
+
+        dropZone.addEventListener("dragleave", function() {
+            dropZone.style.backgroundColor = "#f9f9f9";
+        });
+
+        dropZone.addEventListener("drop", function(e) {
+            e.preventDefault();
+            dropZone.style.backgroundColor = "#f9f9f9";
+
+            uploadedFile = e.dataTransfer.files[0];
+            if (!uploadedFile) return;
+
+            let reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById("uploadedImage").src = e.target.result;
+                document.getElementById("uploadedImage").style.display = "block";
+                document.getElementById("submitImage").style.display = "inline-block";
+            };
+            reader.readAsDataURL(uploadedFile);
+        });
+
+        // Submit Button - Send Image to Backend
+        document.getElementById("submitImage").addEventListener("click", function() {
+            if (!uploadedFile) {
+                alert("Please upload an image first.");
+                return;
+            }
+
+            let formData = new FormData();
+            formData.append("file", uploadedFile);
+
+            fetch("/upload", { method: "POST", body: formData })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        document.getElementById("resultBox").value = "Error: " + data.error;
+                    } else {
+                        document.getElementById("resultBox").value = data.gender;
+                    }
+                });
+        });
+    </script>
+
+</body>
+</html>

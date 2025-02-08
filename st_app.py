@@ -3,12 +3,11 @@ import cv2
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import img_to_array
-import os
 
 st.title("Gender Detection App")
 
 # Load trained model
-model = tf.keras.models.load_model("gendermodel.h5")
+model = tf.keras.models.load_model("gendermodel.keras")
 
 # Image Preprocessing
 def preprocess_image(image):
@@ -20,17 +19,18 @@ def preprocess_image(image):
 
 # **1. Webcam Stream with Stop Button**
 st.subheader("Live Camera Feed")
-start_camera = st.button("Start Camera")
+
+# Use checkbox instead of session state button to avoid IndexError
+start_camera = st.checkbox("Enable Camera")
 
 if start_camera:
     camera = cv2.VideoCapture(0)
-    stop_camera = st.button("Stop Camera")
     stframe = st.empty()
-    
-    while camera.isOpened():
+
+    while start_camera:  # Runs while checkbox is checked
         success, frame = camera.read()
-        if not success or stop_camera:
-            camera.release()
+        if not success:
+            st.warning("Could not access the camera. Please check your webcam.")
             break
         
         # Detect Gender
@@ -57,7 +57,9 @@ if start_camera:
 
         stframe.image(frame, channels="BGR")
 
-# **2. Image Upload Fix**
+    camera.release()
+
+# **2. Image Upload**
 st.subheader("Upload an Image")
 uploaded_file = st.file_uploader("Upload an Image", type=["jpg", "png", "jpeg"])
 

@@ -4,77 +4,57 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import img_to_array
 
-st.title("Gender Detection App")
+# Load trained gender classification model
+@st.cache_resource
+def load_model():
+    return tf.keras.models.load_model("gendermodel.keras")
 
-# Load trained model
-model = tf.keras.models.load_model("gendermodel.keras")
+model = load_model()
 
-# Image Preprocessing
+# Image preprocessing function
 def preprocess_image(image):
-    image = cv2.resize(image, (64, 64))  # Resize to model input size
+    image = cv2.resize(image, (64, 64))  # Resize to match model input
     image = img_to_array(image)
     image = np.expand_dims(image, axis=0)
     image = image / 255.0  # Normalize
     return image
 
-# **1. Webcam Stream with Stop Button**
+# Title
+st.title("Live Gender Detection App")
+
+# **1. Live Camera Input (Works on Mobile & PC)**
 st.subheader("Live Camera Feed")
+camera_input = st.camera_input("Take a picture")
 
-# Use checkbox instead of session state button to avoid IndexError
-start_camera = st.checkbox("Enable Camera")
+if camera_input is not None:
+    # Read the image
+    file_bytes = np.asarray(bytearray(camera_input.read()), dtype=np.uint8)
+    image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
-if start_camera:
-    camera = cv2.VideoCapture(0)
-    stframe = st.empty()
-
-    while start_camera:  # Runs while checkbox is checked
-        success, frame = camera.read()
-        if not success:
-            st.warning("Could not access the camera. Please check your webcam.")
-            break
+    if image is not None:
+        st.image(image, caption="Captured Image", use_column_width=True)
         
-        # Detect Gender
-        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+        # Process and predict
+        processed_image = preprocess_image(image)
+        prediction = model.predict(processed_image)[0][0]
+        gender = "Male" if prediction < 0.5 else "Female"
 
-        for (x, y, w, h) in faces:
-            face = frame[y:y+h, x:x+w]
-            if face.size == 0:
-                continue  # Skip if face detection fails
-            
-            processed_face = preprocess_image(face)
-            prediction = model.predict(processed_face)[0][0]
-            gender = "Male" if prediction < 0.5 else "Female"
+        st.write(f"Predicted Gender: **{gender}**")
 
-            # Debugging: Print Prediction Value
-            print(f"Prediction Value: {prediction}, Classified as: {gender}")
-
-            # Draw Box & Label
-            color = (255, 0, 0) if gender == "Male" else (255, 20, 147)
-            cv2.rectangle(frame, (x, y), (x+w, y+h), color, 2)
-            cv2.putText(frame, gender, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
-
-        stframe.image(frame, channels="BGR")
-
-    camera.release()
-
-# **2. Image Upload**
+# **2. Image Upload Option**
 st.subheader("Upload an Image")
-uploaded_file = st.file_uploader("Upload an Image", type=["jpg", "png", "jpeg"])
+uploaded_file = st.file_uploader("Choose an Image", type=["jpg", "png", "jpeg"])
 
 if uploaded_file is not None:
     file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
     image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-    
+
     if image is not None:
         st.image(image, caption="Uploaded Image", use_column_width=True)
+        
+        # Process and predict
         processed_image = preprocess_image(image)
-
         prediction = model.predict(processed_image)[0][0]
-        gender = "Male" if prediction > 0.5 else "Female"
-
-        # Debugging: Print Prediction Value
-        print(f"Prediction Value: {prediction}, Classified as: {gender}")
+        gender = "Male" if prediction < 0.5 else "Female"
 
         st.write(f"Predicted Gender: **{gender}**")
